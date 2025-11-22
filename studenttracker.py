@@ -1,16 +1,19 @@
+# student_tracker_pure_python.py
+# 100% Pure Python - Beautiful Green GUI Student Tracker
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
 import sqlite3
 from datetime import datetime
 
+# ============================
+# Database Setup
+# ============================
 DB_NAME = "students.db"
 
 
-# ----------------------------
-# Database Setup
-# ----------------------------
 def init_db():
     conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('''
+    conn.execute('''
         CREATE TABLE IF NOT EXISTS students (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -23,219 +26,200 @@ def init_db():
     conn.close()
 
 
-# ----------------------------
-# Helper: Grade Change Calculator
-# ----------------------------
-def calculate_grade_change(old_grade, new_grade):
+# ============================
+# Grade Change Calculator
+# ============================
+def calculate_grade_change(old, new):
     try:
-        old = float(old_grade) if old_grade else 0
-        new = float(new_grade)
-        if old == 0:
-            return "New grade assigned!", "blue"
-        change = new - old
-        percent = (change / old) * 100
+        old_val = float(old) if old else 0
+        new_val = float(new)
+        if old_val == 0:
+            return f"New grade: {new_val} SUCCESS"
+        change = new_val - old_val
+        percent = (change / old_val) * 100
         if change > 0:
-            return f"UPGRADE: +{change} ({percent:+.1f}%)", "green"
+            return f"UPGRADE +{change:.1f} ({percent:+.1f}%) SUCCESS"
         elif change < 0:
-            return f"DOWNGRADE: {change} ({percent:+.1f}%)", "red"
+            return f"DOWNGRADE {change:.1f} ({percent:+.1f}%) WARNING"
         else:
-            return "No change", "gray"
+            return "No change INFO"
     except:
-        return "Invalid grade", "red"
+        return "Invalid grade ERROR"
 
 
-# ----------------------------
-# CRUD Operations
-# ----------------------------
-def add_student():
-    print("\n" + "—" * 40)
-    print("        ADD NEW STUDENT")
-    print("—" * 40)
+# ============================
+# Main App Class
+# ============================
+class StudentTracker:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Student Tracker Pro")
+        self.root.geometry("1000x650")
+        self.root.configure(bg="#e8f5e8")
 
-    sid = input("Student ID: ").strip()
-    if not sid:
-        print("Error: ID cannot be empty!")
-        return
+        # Title
+        title = tk.Label(root, text="STUDENT TRACKER PRO", font=("Arial", 28, "bold"),
+                         bg="#e8f5e8", fg="#1b5e20")
+        title.pack(pady=20)
 
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM students WHERE id = ?", (sid,))
-    if cursor.fetchone():
-        print(f"Error: Student ID '{sid}' already exists! Duplicates not allowed.")
+        # Buttons Frame
+        btn_frame = tk.Frame(root, bg="#e8f5e8")
+        btn_frame.pack(pady=10)
+
+        tk.Button(btn_frame, text="Add Student", font=("Arial", 14, "bold"), bg="#2e7d32", fg="white",
+                  width=15, height=2, command=self.add_student).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="Refresh List", font=("Arial", 14, "bold"), bg="#1b5e20", fg="white",
+                  width=15, height=2, command=self.load_students).pack(side=tk.LEFT, padx=10)
+
+        # Treeview (Table)
+        columns = ("ID", "Name", "Grade", "Email", "Added")
+        self.tree = ttk.Treeview(root, columns=columns, show="headings", height=18)
+
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=150, anchor="center")
+        self.tree.column("Name", width=200)
+        self.tree.column("Email", width=250)
+
+        self.tree.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
+
+        # Right-click menu
+        self.menu = tk.Menu(root, tearoff=0)
+        self.menu.add_command(label="Edit Student", command=self.edit_student)
+        self.menu.add_command(label="Delete Student", command=self.delete_student)
+        self.tree.bind("<Button-3>", self.show_menu)  # Right click
+
+        # Status bar
+        self.status = tk.Label(root, text="Ready", bg="#c8e6c9", fg="#1b5e20", font=("Arial", 12), relief=tk.SUNKEN,
+                               anchor=tk.W)
+        self.status.pack(fill=tk.X)
+
+        self.load_students()
+
+    def load_students(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, grade, email, added_date FROM students ORDER BY name")
+        for row in cursor.fetchall():
+            grade = row[2] if row[2] is not None else "N/A"
+            self.tree.insert("", "end", values=(row[0], row[1], grade, row[3] or "-", row[4]))
         conn.close()
-        return
+        self.status.config(text=f"Total Students: {len(self.tree.get_children())}")
 
-    name = input("Student Name: ").strip()
-    grade = input("Grade (e.g. 95.5): ").strip()
-    email = input("Email: ").strip()
+    def add_student(self):
+        self.show_form("Add Student")
 
-    if not name:
-        print("Error: Name is required!")
-        conn.close()
-        return
-
-    added_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-    cursor.execute('''
-        INSERT INTO students (id, name, grade, email, added_date)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (sid, name, grade or None, email, added_date))
-
-    conn.commit()
-    conn.close()
-    print(f"SUCCESS: Student '{name}' (ID: {sid}) added successfully!\n")
-
-
-def view_students():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name, grade, email, added_date FROM students ORDER BY name")
-    rows = cursor.fetchall()
-    conn.close()
-
-    if not rows:
-        print("No students in database yet.\n")
-        return
-
-    print("\n" + "═" * 100)
-    print("                               ALL STUDENTS")
-    print("═" * 100)
-    print(f"{'ID':<8} {'Name':<20} {'Grade':<8} {'Email':<25} {'Added'}")
-    print("—" * 100)
-    for row in rows:
-        grade = row[2] if row[2] is not None else "N/A"
-        print(f"{row[0]:<8} {row[1]:<20} {str(grade):<8} {row[3]:<25} {row[4]}")
-    print("═" * 100 + "\n")
-
-
-def search_students():
-    term = input("\nSearch by Name or ID: ").strip().lower()
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT id, name, grade, email FROM students
-        WHERE LOWER(id) LIKE ? OR LOWER(name) LIKE ?
-    ''', (f"%{term}%", f"%{term}%"))
-    results = cursor.fetchall()
-    conn.close()
-
-    if not results:
-        print("No students found matching your search.\n")
-        return
-
-    print(f"\nSearch Results for '{term}':\n")
-    for r in results:
-        grade = r[2] if r[2] else "N/A"
-        print(f" → {r[0]} | {r[1]} | Grade: {grade} | {r[3]}")
-    print()
-
-
-def update_student():
-    sid = input("\nEnter Student ID to update: ").strip()
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, grade, email FROM students WHERE id = ?", (sid,))
-    student = cursor.fetchone()
-
-    if not student:
-        print("Error: Student not found!")
-        conn.close()
-        return
-
-    name, old_grade, email = student
-    print(f"\nFound: {name} | Current Grade: {old_grade or 'N/A'}")
-    print("Leave blank to keep current value.\n")
-
-    new_name = input(f"New name [{name}]: ").strip() or name
-    new_email = input(f"New email [{email or 'None'}]: ").strip() or email
-    new_grade_input = input(f"New grade [{old_grade or 'None'}]: ").strip()
-
-    if new_grade_input:
-        try:
-            float(new_grade_input)
-        except ValueError:
-            print("Error: Grade must be a number!")
-            conn.close()
+    def edit_student(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Select", "Please select a student!")
             return
+        values = self.tree.item(selected[0])["values"]
+        self.show_form("Edit Student", values)
 
-    # Update only changed fields
-    cursor.execute('''
-        UPDATE students SET name=?, email=? WHERE id=?
-    ''', (new_name, new_email or None, sid))
+    def delete_student(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Select", "Please select a student!")
+            return
+        sid = self.tree.item(selected[0])["values"][0]
+        name = self.tree.item(selected[0])["values"][1]
 
-    if new_grade_input:
-        cursor.execute("UPDATE students SET grade=? WHERE id=?", (new_grade_input, sid))
-        change_text, _ = calculate_grade_change(old_grade, new_grade_input)
-        print(f"\nGrade updated: {old_grade or 0} → {new_grade_input}")
-        print(f"   {change_text}\n")
-    else:
-        print("\nStudent info updated (grade unchanged)\n")
+        if messagebox.askyesno("Delete", f"Delete student '{name}' (ID: {sid})?"):
+            conn = sqlite3.connect(DB_NAME)
+            conn.execute("DELETE FROM students WHERE id = ?", (sid,))
+            conn.commit()
+            conn.close()
+            messagebox.showinfo("Deleted", f"Student '{name}' deleted!")
+            self.load_students()
 
-    conn.commit()
-    conn.close()
+    def show_menu(self, event):
+        try:
+            self.tree.selection_set(self.tree.identify_row(event.y))
+            self.menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.menu.grab_release()
+
+    def show_form(self, title, data=None):
+        form = tk.Toplevel(self.root)
+        form.title(title)
+        form.geometry("400x500")
+        form.configure(bg="#e8f5e8")
+        form.grab_set()
+
+        tk.Label(form, text=title, font=("Arial", 18, "bold"), bg="#e8f5e8", fg="#1b5e20").pack(pady=20)
+
+        # Form fields
+        tk.Label(form, text="Student ID:", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
+        id_entry = tk.Entry(form, font=("Arial", 12), width=30)
+        id_entry.pack(pady=5)
+
+        tk.Label(form, text="Full Name:", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
+        name_entry = tk.Entry(form, font=("Arial", 12), width=30)
+        name_entry.pack(pady=5)
+
+        tk.Label(form, text="Grade (e.g. 95.5):", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
+        grade_entry = tk.Entry(form, font=("Arial", 12), width=30)
+        grade_entry.pack(pady=5)
+
+        tk.Label(form, text="Email:", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
+        email_entry = tk.Entry(form, font=("Arial", 12), width=30)
+        email_entry.pack(pady=5)
+
+        if data:
+            id_entry.insert(0, data[0])
+            id_entry.config(state="disabled")  # Can't change ID
+            name_entry.insert(0, data[1])
+            grade_entry.insert(0, data[2] if data[2] != "N/A" else "")
+            email_entry.insert(0, data[3] if data[3] != "-" else "")
+
+        def save():
+            sid = id_entry.get().strip()
+            name = name_entry.get().strip()
+            grade = grade_entry.get().strip()
+            email = email_entry.get().strip()
+
+            if not sid or not name:
+                messagebox.showerror("Error", "ID and Name are required!")
+                return
+
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+
+            if data:  # Update
+                old_grade = data[2] if data[2] != "N/A" else None
+                cursor.execute("UPDATE students SET name=?, grade=?, email=? WHERE id=?",
+                               (name, grade or None, email or None, sid))
+                change = calculate_grade_change(old_grade, grade) if grade else ""
+                conn.commit()
+                conn.close()
+                messagebox.showinfo("Success", f"Student updated!\n{change}")
+            else:  # Add new
+                try:
+                    cursor.execute("INSERT INTO students VALUES (?, ?, ?, ?, ?)",
+                                   (sid, name, grade or None, email or None, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                    conn.commit()
+                    conn.close()
+                    messagebox.showinfo("Success", f"Student '{name}' added!")
+                except sqlite3.IntegrityError:
+                    conn.close()
+                    messagebox.showerror("Error", f"Student ID '{sid}' already exists!")
+
+            form.destroy()
+            self.load_students()
+
+        tk.Button(form, text="Save", font=("Arial", 14, "bold"), bg="#2e7d32", fg="white",
+                  width=15, height=2, command=save).pack(pady=30)
 
 
-def delete_student():
-    sid = input("\nEnter Student ID to delete: ").strip()
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM students WHERE id = ?", (sid,))
-    student = cursor.fetchone()
-
-    if not student:
-        print("Error: Student not found!")
-        conn.close()
-        return
-
-    confirm = input(f"Delete student '{student[0]}' (ID: {sid})? Type 'yes' to confirm: ")
-    if confirm.lower() != "yes":
-        print("Deletion cancelled.\n")
-        conn.close()
-        return
-
-    cursor.execute("DELETE FROM students WHERE id = ?", (sid,))
-    conn.commit()
-    conn.close()
-    print(f"Student '{student[0]}' has been permanently deleted.\n")
-
-
-# ----------------------------
-# Main Menu
-# ----------------------------
-def main():
-    init_db()  # Create DB and table if not exists
-    print("Student Grade Tracker with Database")
-    print("Data saved permanently in 'students.db'")
-
-    while True:
-        print("\n" + "═" * 50)
-        print("        STUDENT DATABASE MANAGER")
-        print("═" * 50)
-        print("1. Add Student")
-        print("2. View All Students")
-        print("3. Search Students")
-        print("4. Update Student")
-        print("5. Delete Student")
-        print("6. Exit")
-        print("─" * 50)
-
-        choice = input("Choose option (1-6): ").strip()
-
-        if choice == "1":
-            add_student()
-        elif choice == "2":
-            view_students()
-        elif choice == "3":
-            search_students()
-        elif choice == "4":
-            update_student()
-        elif choice == "5":
-            delete_student()
-        elif choice == "6":
-            print("Thank you! Goodbye!")
-            break
-        else:
-            print("Invalid option. Try again.")
-
-
+# ============================
+# Run the App
+# ============================
 if __name__ == "__main__":
-    main()
+    init_db()
+    root = tk.Tk()
+    app = StudentTracker(root)
+    root.mainloop()
