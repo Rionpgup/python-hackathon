@@ -1,15 +1,10 @@
-# student_tracker_pure_python.py
-# 100% Pure Python - Beautiful Green GUI Student Tracker
+# modern_student_tracker.py - ULTRA MODERN GREEN UI 2025
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
 
-# ============================
-# Database Setup
-# ============================
 DB_NAME = "students.db"
-
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -25,201 +20,249 @@ def init_db():
     conn.commit()
     conn.close()
 
-
-# ============================
-# Grade Change Calculator
-# ============================
-def calculate_grade_change(old, new):
-    try:
-        old_val = float(old) if old else 0
-        new_val = float(new)
-        if old_val == 0:
-            return f"New grade: {new_val} SUCCESS"
-        change = new_val - old_val
-        percent = (change / old_val) * 100
-        if change > 0:
-            return f"UPGRADE +{change:.1f} ({percent:+.1f}%) SUCCESS"
-        elif change < 0:
-            return f"DOWNGRADE {change:.1f} ({percent:+.1f}%) WARNING"
-        else:
-            return "No change INFO"
-    except:
-        return "Invalid grade ERROR"
-
-
-# ============================
-# Main App Class
-# ============================
-class StudentTracker:
+class ModernStudentTracker:
     def __init__(self, root):
         self.root = root
-        self.root.title("Student Tracker Pro")
-        self.root.geometry("1000x650")
-        self.root.configure(bg="#e8f5e8")
+        self.root.title("Student Tracker 2025")
+        self.root.geometry("1200x750")
+        self.root.configure(bg="#121212")  # Dark modern background
+        self.root.state('zoomed')  # Fullscreen modern feel (optional)
+
+        # Modern Style
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure("Treeview", background="#1e1e1e", foreground="white",
+                        rowheight=60, fieldbackground="#1e1e1e", font=("Segoe UI", 11))
+        style.configure("Treeview.Heading", background="#0d3311", foreground="white",
+                        font=("Segoe UI", 12, "bold"))
+        style.map("Treeview", background=[('selected', '#2e7d32')])
+        style.map("Treeview.Heading", background=[('active', '#1b5e20')])
 
         # Title
-        title = tk.Label(root, text="STUDENT TRACKER PRO", font=("Arial", 28, "bold"),
-                         bg="#e8f5e8", fg="#1b5e20")
-        title.pack(pady=20)
+        title_frame = tk.Frame(root, bg="#121212")
+        title_frame.pack(pady=30)
+        tk.Label(title_frame, text="STUDENT TRACKER", font=("Montserrat", 36, "bold"),
+                 bg="#121212", fg="#4caf50").pack()
+        tk.Label(title_frame, text="Modern • Fast • Beautiful", font=("Segoe UI", 14),
+                 bg="#121212", fg="#81c784").pack()
 
-        # Buttons Frame
-        btn_frame = tk.Frame(root, bg="#e8f5e8")
-        btn_frame.pack(pady=10)
+        # Buttons
+        btn_frame = tk.Frame(root, bg="#121212")
+        btn_frame.pack(pady=20)
 
-        tk.Button(btn_frame, text="Add Student", font=("Arial", 14, "bold"), bg="#2e7d32", fg="white",
-                  width=15, height=2, command=self.add_student).pack(side=tk.LEFT, padx=10)
-        tk.Button(btn_frame, text="Refresh List", font=("Arial", 14, "bold"), bg="#1b5e20", fg="white",
-                  width=15, height=2, command=self.load_students).pack(side=tk.LEFT, padx=10)
+        add_btn = tk.Button(btn_frame, text="+ ADD STUDENT", font=("Segoe UI", 14, "bold"),
+                           bg="#4caf50", fg="white", relief="flat", bd=0, padx=30, pady=15,
+                           command=self.add_student, cursor="hand2")
+        add_btn.pack(side=tk.LEFT, padx=15)
+        self.add_hover(add_btn, "#66bb6a", "#4caf50")
 
-        # Treeview (Table)
+        refresh_btn = tk.Button(btn_frame, text="Refresh", font=("Segoe UI", 14, "bold"),
+                               bg="#2e7d32", fg="white", relief="flat", bd=0, padx=30, pady=15,
+                               command=self.load_students, cursor="hand2")
+        refresh_btn.pack(side=tk.LEFT, padx=15)
+        self.add_hover(refresh_btn, "#388e3c", "#2e7d32")
+
+        # Treeview with modern hover
         columns = ("ID", "Name", "Grade", "Email", "Added")
-        self.tree = ttk.Treeview(root, columns=columns, show="headings", height=18)
+        self.tree = ttk.Treeview(root, columns=columns, show="headings", selectmode="browse")
+        self.tree.pack(fill="both", expand=True, padx=50, pady=20)
 
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=150, anchor="center")
-        self.tree.column("Name", width=200)
-        self.tree.column("Email", width=250)
+        # Column config
+        self.tree.heading("ID", text="ID")
+        self.tree.heading("Name", text="Student Name")
+        self.tree.heading("Grade", text="Grade")
+        self.tree.heading("Email", text="Email")
+        self.tree.heading("Added", text="Added On")
 
-        self.tree.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
+        self.tree.column("ID", width=120, anchor="center")
+        self.tree.column("Name", width=280, anchor="w")
+        self.tree.column("Grade", width=150, anchor="center")
+        self.tree.column("Email", width=300, anchor="w")
+        self.tree.column("Added", width=180, anchor="center")
 
-        # Right-click menu
-        self.menu = tk.Menu(root, tearoff=0)
+        # Tags for hover effect
+        self.tree.tag_configure("oddrow", background="#1e1e1e")
+        self.tree.tag_configure("evenrow", background="#252525")
+        self.tree.tag_configure("hover", background="#2d2d2d")
+
+        # Bind hover
+        self.tree.bind("<Motion>", self.on_hover)
+        self.tree.bind("<Leave>", self.on_leave)
+        self.tree.bind("<Button-3>", self.show_context_menu)
+
+        # Context menu
+        self.menu = tk.Menu(root, tearoff=0, bg="#1e1e1e", fg="white", font=("Segoe UI", 10))
         self.menu.add_command(label="Edit Student", command=self.edit_student)
         self.menu.add_command(label="Delete Student", command=self.delete_student)
-        self.tree.bind("<Button-3>", self.show_menu)  # Right click
 
         # Status bar
-        self.status = tk.Label(root, text="Ready", bg="#c8e6c9", fg="#1b5e20", font=("Arial", 12), relief=tk.SUNKEN,
-                               anchor=tk.W)
-        self.status.pack(fill=tk.X)
+        self.status = tk.Label(root, text="Ready • Modern Design Active", bg="#0d3311", fg="#81c784",
+                               font=("Segoe UI", 11), anchor="w", padx=20)
+        self.status.pack(fill="x", side="bottom", pady=0)
 
+        self.current_hover = None
         self.load_students()
 
-    def load_students(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+    def add_hover(self, widget, color_on_hover, color_on_leave):
+        widget.bind("<Enter>", lambda e: widget.config(bg=color_on_hover))
+        widget.bind("<Leave>", lambda e: widget.config(bg=color_on_leave))
 
+    def on_hover(self, event):
+        row_id = self.tree.identify_row(event.y)
+        if row_id and row_id != self.current_hover:
+            if self.current_hover:
+                self.tree.detach(self.current_hover)
+                self.tree.set(self.current_hover, "Grade", self.original_grade)
+            self.current_hover = row_id
+            # Apply hover style
+            self.tree.item(row_id, tags=("hover",))
+            # Highlight grade with badge effect
+            values = self.tree.item(row_id, "values")
+            grade = values[2] if values[2] != "N/A" else "—"
+            self.original_grade = grade
+            if grade != "—":
+                self.tree.set(row_id, "Grade", f"{grade}")
+
+    def on_leave(self, event):
+        if self.current_hover:
+            self.tree.item(self.current_hover, tags=("oddrow", "evenrow"))
+            self.current_hover = None
+
+    def load_students(self):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute("SELECT id, name, grade, email, added_date FROM students ORDER BY name")
-        for row in cursor.fetchall():
-            grade = row[2] if row[2] is not None else "N/A"
-            self.tree.insert("", "end", values=(row[0], row[1], grade, row[3] or "-", row[4]))
+        rows = cursor.fetchall()
         conn.close()
-        self.status.config(text=f"Total Students: {len(self.tree.get_children())}")
 
-    def add_student(self):
-        self.show_form("Add Student")
+        for idx, row in enumerate(rows):
+            grade = f"{row[2]:.1f}" if row[2] else "N/A"
+            tag = "evenrow" if idx % 2 == 0 else "oddrow"
+            self.tree.insert("", "end", values=(row[0], row[1], grade, row[3] or "—", row[4]), tags=(tag,))
 
-    def edit_student(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("Select", "Please select a student!")
-            return
-        values = self.tree.item(selected[0])["values"]
-        self.show_form("Edit Student", values)
+        self.status.config(text=f"Total Students: {len(rows)} • Hover for magic!")
 
-    def delete_student(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("Select", "Please select a student!")
-            return
-        sid = self.tree.item(selected[0])["values"][0]
-        name = self.tree.item(selected[0])["values"][1]
-
-        if messagebox.askyesno("Delete", f"Delete student '{name}' (ID: {sid})?"):
-            conn = sqlite3.connect(DB_NAME)
-            conn.execute("DELETE FROM students WHERE id = ?", (sid,))
-            conn.commit()
-            conn.close()
-            messagebox.showinfo("Deleted", f"Student '{name}' deleted!")
-            self.load_students()
-
-    def show_menu(self, event):
+    def show_context_menu(self, event):
         try:
             self.tree.selection_set(self.tree.identify_row(event.y))
             self.menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.menu.grab_release()
 
+    def add_student(self):
+        self.show_form("Add New Student")
+
+    def edit_student(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("Select", "Please select a student!")
+            return
+        values = self.tree.item(sel[0])["values"]
+        self.show_form("Edit Student", values)
+
+    def delete_student(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0])["values"]
+        if messagebox.askyesno("Delete", f"Permanently delete\n{values[1]} (ID: {values[0]})?"):
+            conn = sqlite3.connect(DB_NAME)
+            conn.execute("DELETE FROM students WHERE id = ?", (values[0],))
+            conn.commit()
+            conn.close()
+            messagebox.showinfo("Deleted", "Student removed successfully!")
+            self.load_students()
+
     def show_form(self, title, data=None):
         form = tk.Toplevel(self.root)
         form.title(title)
-        form.geometry("400x500")
-        form.configure(bg="#e8f5e8")
+        form.geometry("480x580")
+        form.configure(bg="#121212")
+        form.resizable(False, False)
         form.grab_set()
 
-        tk.Label(form, text=title, font=("Arial", 18, "bold"), bg="#e8f5e8", fg="#1b5e20").pack(pady=20)
+        tk.Label(form, text=title, font=("Montserrat", 20, "bold"), bg="#121212", fg="#4caf50").pack(pady=30)
 
-        # Form fields
-        tk.Label(form, text="Student ID:", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
-        id_entry = tk.Entry(form, font=("Arial", 12), width=30)
-        id_entry.pack(pady=5)
-
-        tk.Label(form, text="Full Name:", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
-        name_entry = tk.Entry(form, font=("Arial", 12), width=30)
-        name_entry.pack(pady=5)
-
-        tk.Label(form, text="Grade (e.g. 95.5):", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
-        grade_entry = tk.Entry(form, font=("Arial", 12), width=30)
-        grade_entry.pack(pady=5)
-
-        tk.Label(form, text="Email:", font=("Arial", 12), bg="#e8f5e8", fg="#1b5e20").pack()
-        email_entry = tk.Entry(form, font=("Arial", 12), width=30)
-        email_entry.pack(pady=5)
+        entries = {}
+        fields = ["Student ID", "Full Name", "Grade (e.g. 95.5)", "Email (optional)"]
+        for field in fields:
+            tk.Label(form, text=field, font=("Segoe UI", 11), bg="#121212", fg="#81c784").pack(anchor="w", padx=60, pady=(20,5))
+            entry = tk.Entry(form, font=("Segoe UI", 14), bg="#1e1e1e", fg="white", insertbackground="white",
+                            relief="flat", bd=8, highlightthickness=2, highlightcolor="#4caf50")
+            entry.pack(padx=60, fill="x", pady=5)
+            entries[field] = entry
 
         if data:
-            id_entry.insert(0, data[0])
-            id_entry.config(state="disabled")  # Can't change ID
-            name_entry.insert(0, data[1])
-            grade_entry.insert(0, data[2] if data[2] != "N/A" else "")
-            email_entry.insert(0, data[3] if data[3] != "-" else "")
+            entries["Student ID"].insert(0, data[0])
+            entries["Student ID"].config(state="disabled", disabledbackground="#333", disabledforeground="#aaa")
+            entries["Full Name"].insert(0, data[1])
+            entries["Grade (e.g. 95.5)"].insert(0, data[2] if data[2] != "N/A" else "")
+            entries["Email (optional)"].insert(0, data[3] if data[3] != "—" else "")
 
         def save():
-            sid = id_entry.get().strip()
-            name = name_entry.get().strip()
-            grade = grade_entry.get().strip()
-            email = email_entry.get().strip()
+            sid = entries["Student ID"].get().strip()
+            name = entries["Full Name"].get().strip()
+            grade = entries["Grade (e.g. 95.5)"].get().strip()
+            email = entries["Email (optional)"].get().strip()
 
             if not sid or not name:
-                messagebox.showerror("Error", "ID and Name are required!")
+                messagebox.showerror("Error", "ID and Name required!")
                 return
 
             conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-
-            if data:  # Update
-                old_grade = data[2] if data[2] != "N/A" else None
-                cursor.execute("UPDATE students SET name=?, grade=?, email=? WHERE id=?",
-                               (name, grade or None, email or None, sid))
-                change = calculate_grade_change(old_grade, grade) if grade else ""
-                conn.commit()
-                conn.close()
-                messagebox.showinfo("Success", f"Student updated!\n{change}")
-            else:  # Add new
-                try:
-                    cursor.execute("INSERT INTO students VALUES (?, ?, ?, ?, ?)",
-                                   (sid, name, grade or None, email or None, datetime.now().strftime("%Y-%m-%d %H:%M")))
-                    conn.commit()
-                    conn.close()
+            try:
+                if data:
+                    old_grade = data[2] if data[2] != "N/A" else None
+                    conn.execute("UPDATE students SET name=?, grade=?, email=? WHERE id=?",
+                                (name, float(grade) if grade else None, email or None, sid))
+                    change = self.calculate_change(old_grade, grade)
+                    messagebox.showinfo("Success", f"Updated!\n{change}")
+                else:
+                    conn.execute("INSERT INTO students VALUES (?, ?, ?, ?, ?)",
+                                (sid, name, float(grade) if grade else None, email or None,
+                                 datetime.now().strftime("%Y-%m-%d %H:%M")))
                     messagebox.showinfo("Success", f"Student '{name}' added!")
-                except sqlite3.IntegrityError:
-                    conn.close()
-                    messagebox.showerror("Error", f"Student ID '{sid}' already exists!")
+                conn.commit()
+            except sqlite3.IntegrityError:
+                messagebox.showerror("Error", "ID already exists!")
+            except ValueError:
+                messagebox.showerror("Error", "Grade must be a number!")
+            finally:
+                conn.close()
+                form.destroy()
+                self.load_students()
 
-            form.destroy()
-            self.load_students()
+        save_btn = tk.Button(form, text="SAVE STUDENT", font=("Segoe UI", 14, "bold"),
+                            bg="#4caf50", fg="white", command=save, relief="flat", pady=15)
+        save_btn.pack(fill="x", padx=60, pady=40)
+        self.add_hover(save_btn, "#66bb6a", "#4caf50")
 
-        tk.Button(form, text="Save", font=("Arial", 14, "bold"), bg="#2e7d32", fg="white",
-                  width=15, height=2, command=save).pack(pady=30)
-
+    def calculate_change(self, old, new):
+        if not new:
+            return "Grade cleared"
+        try:
+            old_val = float(old) if old else 0
+            new_val = float(new)
+            if old_val == 0:
+                return f"First grade set: {new_val}"
+            change = new_val - old_val
+            percent = (change / old_val) * 100
+            if change > 0:
+                return f"UPGRADE +{change:.1f} (+{percent:+.1f}%)"
+            elif change < 0:
+                return f"DOWNGRADE {change:.1f} ({percent:+.1f}%)"
+            else:
+                return "No change"
+        except:
+            return "Grade updated"
 
 # ============================
-# Run the App
+# LAUNCH MODERN APP
 # ============================
 if __name__ == "__main__":
     init_db()
     root = tk.Tk()
-    app = StudentTracker(root)
+    app = ModernStudentTracker(root)
     root.mainloop()
