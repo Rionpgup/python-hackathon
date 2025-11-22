@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
-import os
 import hashlib
 
 DB_NAME = "students.db"
@@ -12,9 +11,7 @@ USERS_DB = "users.db"
 def init_databases():
     conn = sqlite3.connect(USERS_DB)
     conn.execute('''CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY, 
-                    password TEXT NOT NULL, 
-                    role TEXT NOT NULL DEFAULT "student")''')
+                    username TEXT PRIMARY KEY, password TEXT NOT NULL, role TEXT NOT NULL)''')
     if not conn.execute("SELECT 1 FROM users WHERE username='admin'").fetchone():
         conn.execute("INSERT INTO users VALUES ('admin', ?, 'admin')", (hash_pwd('admin'),))
     conn.commit()
@@ -24,62 +21,79 @@ def init_databases():
     conn.execute('''CREATE TABLE IF NOT EXISTS students (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
-                    english_grade REAL, history_grade REAL, math_grade REAL,
-                    science_grade REAL, art_grade REAL,
-                    email TEXT, added_date TEXT, photo_source TEXT)''')
+                    surname TEXT NOT NULL,
+                    email TEXT,
+                    english REAL, history REAL, math REAL, science REAL, art REAL,
+                    added_date TEXT)''')
     conn.commit()
     conn.close()
 
 def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
 
-# ==================== MAIN FULL-SCREEN APP WITH BIG TABS ====================
+def get_next_id():
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM students ORDER BY id DESC LIMIT 1")
+    row = cur.fetchone()
+    conn.close()
+    return "S001" if not row else f"S{int(row[0][1:]) + 1:03d}"
+
+# ==================== MAIN APP ====================
 class StudentManagerApp:
     def __init__(self, username, role):
         self.username = username
         self.role = role
 
-        # FULL SCREEN WINDOW
         self.root = tk.Tk()
-        self.root.title(f"Student Manager Pro - {username} ({'Teacher' if role=='admin' else 'Student'})")
-        self.root.state('zoomed')                    # FULL SCREEN
-        self.root.configure(bg="#f8fafc")
+        self.root.title("Student Manager Pro")
+        self.root.state('zoomed')
+        self.root.configure(bg="#f1f5f9")
 
-        # ==================== MODERN STYLE FOR BIG TABS ====================
+        # Big Beautiful Tabs Style
         style = ttk.Style()
         style.theme_use('clam')
-
-        # BIG, BOLD, BEAUTIFUL TABS
-        style.configure("Big.TNotebook", background="#f8fafc", borderwidth=0)
+        style.configure("Big.TNotebook", background="#f1f5f9")
         style.configure("Big.TNotebook.Tab",
-                        font=("Helvetica", 16, "bold"),
-                        padding=[40, 18],
-                        background="#e2e8f0",
-                        foreground="#1e293b")
+                        font=("Helvetica", 18, "bold"),
+                        padding=[60, 25],
+                        background="#cbd5e1")
         style.map("Big.TNotebook.Tab",
-                  background=[("selected", "#00d4aa"), ("active", "#94a3b8")],
-                  foreground=[("selected", "white"), ("active", "white")])
+                  background=[("selected", "#00d4aa")],
+                  foreground=[("selected", "white")])
 
-        # ==================== HEADER ====================
-        header = tk.Frame(self.root, bg="#0f172a", height=100)
+        # ==================== HEADER WITH + ADD STUDENT BUTTON ====================
+        header = tk.Frame(self.root, bg="#0f172a", height=130)
         header.pack(fill="x")
         header.pack_propagate(False)
 
-        tk.Label(header, text="STUDENT MANAGER PRO", font=("Helvetica", 38, "bold"),
-                 bg="#0f172a", fg="#00d4aa").pack(side="left", padx=50, pady=20)
-        tk.Label(header, text=f"Welcome, {username}!", font=("Helvetica", 20),
-                 bg="#0f172a", fg="#94a3b8").pack(side="left", pady=35)
+        # Left: Title + Add Button
+        left_frame = tk.Frame(header, bg="#0f172a")
+        left_frame.pack(side="left", padx=60, pady=30)
 
-        tk.Button(header, text="LOGOUT", bg="#ef4444", fg="white", font=("Helvetica", 14, "bold"),
-                  padx=30, pady=12, command=self.logout, cursor="hand2").pack(side="right", padx=50, pady=25)
+        tk.Label(left_frame, text="STUDENT MANAGER PRO", font=("Helvetica", 42, "bold"),
+                 bg="#0f172a", fg="#00d4aa").pack(anchor="w")
 
-        # ==================== FULL-SIZE TABS ====================
+        tk.Label(left_frame, text=f"Teacher: {username}", font=("Helvetica", 20),
+                 bg="#0f172a", fg="#94a3b8").pack(anchor="w", pady=(5,0))
+
+        # BIG GREEN ADD BUTTON
+        self.add_btn = tk.Button(left_frame, text="+ Add Student", font=("Helvetica", 20, "bold"),
+                                 bg="#10b981", fg="white", relief="flat", cursor="hand2",
+                                 padx=30, pady=18, command=self.open_add_student_popup)
+        self.add_btn.pack(pady=20, anchor="w")
+
+        # Right: Logout
+        tk.Button(header, text="LOGOUT", bg="#ef4444", fg="white", font=("Helvetica", 16, "bold"),
+                  padx=40, pady=15, command=self.logout).pack(side="right", padx=70, pady=40)
+
+        # Tabs
         self.notebook = ttk.Notebook(self.root, style="Big.TNotebook")
-        self.notebook.pack(fill="both", expand=True, padx=30, pady=30)  # FULL SIZE!
+        self.notebook.pack(fill="both", expand=True, padx=50, pady=40)
 
         if role == "admin":
             self.create_admin_tabs()
         else:
-            self.create_student_tabs()
+            self.create_student_tab()
 
         self.root.mainloop()
 
@@ -87,109 +101,90 @@ class StudentManagerApp:
         self.root.destroy()
         WelcomeApp()
 
+    # ==================== ADMIN TABS (NO "Add Student" tab anymore) ====================
     def create_admin_tabs(self):
-        self.tab_dashboard = ttk.Frame(self.notebook)
-        self.tab_add = ttk.Frame(self.notebook)
-        self.tab_all = ttk.Frame(self.notebook)
-        self.tab_passwords = ttk.Frame(self.notebook)
-
-        self.notebook.add(self.tab_dashboard, text="  Dashboard  ")
-        self.notebook.add(self.tab_add, text="  Add Student  ")
-        self.notebook.add(self.tab_all, text="  All Students  ")
-        self.notebook.add(self.tab_passwords, text="  Passwords  ")
-
-        self.show_admin_dashboard()
-        self.show_add_student_form()
-        self.show_all_students()
-        self.show_passwords()
-
-    def create_student_tabs(self):
+        self.tab_list = ttk.Frame(self.notebook)
         self.tab_grades = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_grades, text="  My Grades  ")
-        self.show_student_grades()
 
-    # ==================== ADMIN DASHBOARD ====================
-    def show_admin_dashboard(self):
-        for w in self.tab_dashboard.winfo_children(): w.destroy()
-        f = tk.Frame(self.tab_dashboard, bg="white")
-        f.pack(fill="both", expand=True, padx=100, pady=80)
+        self.notebook.add(self.tab_list, text="  All Students  ")
+        self.notebook.add(self.tab_grades, text="  Update Grades  ")
 
-        conn = sqlite3.connect(DB_NAME)
-        students = conn.execute("SELECT * FROM students").fetchall()
-        conn.close()
+        self.show_all_students()
+        self.show_update_grades_tab()
 
-        total = len(students)
-        if total == 0:
-            avg = "N/A"
-            color = "#64748b"
-        else:
-            avgs = []
-            for s in students:
-                grades = [g for g in s[2:7] if g]
-                if grades: avgs.append(sum(grades)/len(grades))
-            avg = sum(avgs)/len(avgs) if avgs else 0
-            avg = f"{avg:.1f}"
-            color = "#10b981" if float(avg) >= 90 else "#3b82f6" if float(avg) >= 80 else "#f59e0b" if float(avg) >= 70 else "#ef4444"
+    def create_student_tab(self):
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="  My Grades  ")
+        self.show_student_grades(tab)
 
-        tk.Label(f, text="TEACHER DASHBOARD", font=("Helvetica", 40, "bold"), bg="white", fg="#1e293b").pack(pady=60)
-        tk.Label(f, text=f"{avg}/100", font=("Helvetica", 80, "bold"), bg="white", fg=color).pack(pady=30)
-        tk.Label(f, text=f"Overall Class Average • {total} Students", font=("Helvetica", 24), bg="white", fg="#475569").pack(pady=20)
+    # ==================== POPUP: ADD STUDENT ====================
+    def open_add_student_popup(self):
+        popup = tk.Toplevel(self.root)
+        popup.title("Add New Student")
+        popup.geometry("900x900")
+        popup.configure(bg="white")
+        popup.grab_set()  # Modal
 
-    # ==================== ADD STUDENT ====================
-    def show_add_student_form(self):
-        for w in self.tab_add.winfo_children(): w.destroy()
-        f = tk.Frame(self.tab_add, bg="white")
-        f.pack(fill="both", expand=True, padx=150, pady=80)
+        tk.Label(popup, text="ADD NEW STUDENT", font=("Helvetica", 40, "bold"), bg="white", fg="#1e293b").pack(pady=60)
 
-        tk.Label(f, text="Add New Student", font=("Helvetica", 32, "bold"), bg="white").pack(pady=40)
+        # Auto ID
+        student_id = get_next_id()
+        tk.Label(popup, text=f"Student ID: {student_id}", font=("Helvetica", 28, "bold"), bg="white", fg="#00d4aa").pack(pady=20)
 
-        fields = ["Student ID", "Full Name", "Password", "Email", "English", "History", "Math", "Science", "Art"]
-        self.entries = {}
-        for field in fields:
-            tk.Label(f, text=field + ":", font=("Helvetica", 16), bg="white").pack(anchor="w", padx=200, pady=5)
-            e = tk.Entry(f, font=("Helvetica", 18), bg="#f1f5f9", relief="flat", highlightthickness=2, highlightcolor="#00d4aa")
-            e.pack(fill="x", padx=200, pady=8, ipady=12)
-            self.entries[field] = e
+        # Form fields
+        labels = ["Name", "Surname", "Email (optional)", "English Grade", "History Grade", "Math Grade", "Science Grade", "Art Grade", "Password (for login)"]
+        entries = {}
 
-        tk.Button(f, text="ADD STUDENT", font=("Helvetica", 20, "bold"), bg="#10b981", fg="white",
-                  command=self.add_student, height=2, width=25, cursor="hand2").pack(pady=50)
+        for label in labels:
+            row = tk.Frame(popup, bg="white")
+            row.pack(fill="x", padx=150, pady=18)
+            tk.Label(row, text=label + ":", font=("Helvetica", 20), bg="white", width=22, anchor="w").pack(side="left")
+            entry = tk.Entry(row, font=("Helvetica", 22), bg="#f8fafc", relief="flat", highlightthickness=2, highlightcolor="#00d4aa")
+            entry.pack(side="right", fill="x", expand=True, ipady=14)
+            entries[label] = entry
 
-    def add_student(self):
-        data = {k: v.get().strip() for k, v in self.entries.items()}
-        if not all(data[x] for x in ["Student ID", "Full Name", "Password"]):
-            return messagebox.showerror("Error", "Fill required fields!")
+        def save_student():
+            name = entries["Name"].get().strip()
+            surname = entries["Surname"].get().strip()
+            pwd = entries["Password (for login)"].get().strip()
+            if not name or not surname or not pwd:
+                return messagebox.showerror("Error", "Name, Surname, and Password are required!")
 
-        try:
-            grades = [float(data[s]) if data[s] else None for s in ["English","History","Math","Science","Art"]]
-        except:
-            return messagebox.showerror("Error", "Grades must be numbers!")
+            try:
+                grades = [float(entries[f"{s} Grade"].get() or 0) for s in ["English","History","Math","Science","Art"]]
+            except:
+                return messagebox.showerror("Error", "Grades must be numbers!")
 
-        conn = sqlite3.connect(DB_NAME)
-        try:
-            conn.execute("""INSERT INTO students 
-                (id, name, english_grade, history_grade, math_grade, science_grade, art_grade, email, added_date)
-                VALUES (?,?,?, ?,?,?,?, ?,?)""",
-                (data["Student ID"], data["Full Name"], *grades, data["Email"], datetime.now().strftime("%Y-%m-%d")))
+            # Save to DB
+            conn = sqlite3.connect(DB_NAME)
+            conn.execute('''INSERT INTO students 
+                (id, name, surname, email, english, history, math, science, art, added_date)
+                VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                (student_id, name, surname, entries["Email (optional)"].get(),
+                 *grades, datetime.now().strftime("%Y-%m-%d")))
             conn.commit()
-        except sqlite3.IntegrityError:
             conn.close()
-            return messagebox.showerror("Error", "Student ID already exists!")
-        conn.close()
 
-        conn = sqlite3.connect(USERS_DB)
-        conn.execute("INSERT INTO users VALUES (?,?, 'student')", (data["Student ID"], hash_pwd(data["Password"])))
-        conn.commit()
-        conn.close()
+            conn = sqlite3.connect(USERS_DB)
+            conn.execute("INSERT INTO users VALUES (?,?, 'student')", (student_id, hash_pwd(pwd)))
+            conn.commit()
+            conn.close()
 
-        messagebox.showinfo("Success", "Student added!")
-        self.show_add_student_form()
-        self.show_admin_dashboard()
+            messagebox.showinfo("SUCCESS", f"Student added!\n\n{name} {surname}\nID: {student_id}\nPassword: {pwd}")
+            popup.destroy()
+            self.show_all_students()
+            self.show_update_grades_tab()
+
+        tk.Button(popup, text="ADD STUDENT", font=("Helvetica", 26, "bold"), bg="#10b981", fg="white",
+                  command=save_student, height=2, width=25).pack(pady=80)
 
     # ==================== ALL STUDENTS ====================
     def show_all_students(self):
-        for w in self.tab_all.winfo_children(): w.destroy()
-        canvas = tk.Canvas(self.tab_all)
-        scrollbar = ttk.Scrollbar(self.tab_all, command=canvas.yview)
+        for widget in self.tab_list.winfo_children():
+            widget.destroy()
+
+        canvas = tk.Canvas(self.tab_list)
+        scrollbar = ttk.Scrollbar(self.tab_list, command=canvas.yview)
         scrollframe = ttk.Frame(canvas)
         canvas.create_window((0,0), window=scrollframe, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -197,115 +192,159 @@ class StudentManagerApp:
         scrollbar.pack(side="right", fill="y")
 
         conn = sqlite3.connect(DB_NAME)
-        students = conn.execute("SELECT * FROM students").fetchall()
+        students = conn.execute("SELECT id, name, surname, english, history, math, science, art FROM students").fetchall()
         conn.close()
 
         for s in students:
-            sid, name, e,h,m,sci,a,*_ = s
-            avg = sum(filter(None,[e,h,m,sci,a])) / len(list(filter(None,[e,h,m,sci,a]))) if any([e,h,m,sci,a]) else 0
-            card = tk.Frame(scrollframe, bg="white", relief="solid", bd=1, pady=15, padx=30)
-            card.pack(fill="x", pady=10, padx=50)
-            tk.Label(card, text=f"{name} ({sid})", font=("Helvetica", 20, "bold"), bg="white").pack(anchor="w")
-            tk.Label(card, text=f"Avg: {avg:.1f} | Eng:{e} Hist:{h} Math:{m} Sci:{sci} Art:{a}", bg="white").pack(anchor="w")
-            tk.Button(card, text="Delete", bg="#ef4444", fg="white", command=lambda sid=sid:self.delete_student(sid)).pack(side="right")
+            sid, name, surname, e,h,m,sci,a = s
+            avg = sum(filter(None,[e,h,m,sci,a])) / len([x for x in [e,h,m,sci,a] if x]) if any([e,h,m,sci,a]) else 0
+            card = tk.Frame(scrollframe, bg="white", relief="solid", bd=2, pady=30, padx=60)
+            card.pack(fill="x", pady=18, padx=100)
+            tk.Label(card, text=f"{name} {surname}", font=("Helvetica", 28, "bold"), bg="white").pack(anchor="w")
+            tk.Label(card, text=f"ID: {sid} | Average: {avg:.1f}", font=("Helvetica", 20), bg="white", fg="#475569").pack(anchor="w")
+            tk.Label(card, text=f"Eng:{e} Hist:{h} Math:{m} Sci:{sci} Art:{a}", font=("Helvetica", 22), bg="white").pack(pady=10)
 
-    def delete_student(self, sid):
-        if messagebox.askyesno("Delete", "Delete this student?"):
-            sqlite3.connect(DB_NAME).execute("DELETE FROM students WHERE id=?", (sid,)).connection.commit()
-            sqlite3.connect(USERS_DB).execute("DELETE FROM users WHERE username=?", (sid,)).connection.commit()
+    # ==================== UPDATE GRADES TAB ====================
+    def show_update_grades_tab(self):
+        for widget in self.tab_grades.winfo_children():
+            widget.destroy()
+
+        tk.Label(self.tab_grades, text="UPDATE STUDENT GRADES", font=("Helvetica", 38, "bold")).pack(pady=50)
+
+        canvas = tk.Canvas(self.tab_grades)
+        scrollbar = ttk.Scrollbar(self.tab_grades, command=canvas.yview)
+        frame = ttk.Frame(canvas)
+        canvas.create_window((0,0), window=frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True, padx=80)
+        scrollbar.pack(side="right", fill="y")
+
+        conn = sqlite3.connect(DB_NAME)
+        students = conn.execute("SELECT id, name, surname, english, history, math, science, art FROM students").fetchall()
+        conn.close()
+
+        for s in students:
+            sid, name, surname, e,h,m,sci,a = s
+            avg = sum(filter(None,[e,h,m,sci,a])) / len([x for x in [e,h,m,sci,a] if x]) if any([e,h,m,sci,a]) else 0
+            card = tk.Frame(frame, bg="white", relief="solid", bd=2, pady=35, padx=70)
+            card.pack(fill="x", pady=20, padx=120)
+            tk.Label(card, text=f"{name} {surname}", font=("Helvetica", 28, "bold"), bg="white").pack(anchor="w")
+            tk.Label(card, text=f"ID: {sid} | Avg: {avg:.1f}", font=("Helvetica", 20), bg="white", fg="#475569").pack(anchor="w")
+            tk.Label(card, text=f"Eng:{e} Hist:{h} Math:{m} Sci:{sci} Art:{a}", font=("Helvetica", 22), bg="white").pack(pady=10)
+            tk.Button(card, text="UPDATE GRADES", font=("Helvetica", 18, "bold"), bg="#3b82f6", fg="white",
+                      command=lambda sid=sid: self.open_grade_editor(sid)).pack(pady=10)
+
+    def open_grade_editor(self, sid):
+        # Same as before — grade editor popup
+        conn = sqlite3.connect(DB_NAME)
+        data = conn.execute("SELECT name, surname, english, history, math, science, art FROM students WHERE id=?", (sid,)).fetchone()
+        conn.close()
+        name, surname, e,h,m,sci,a = data
+
+        win = tk.Toplevel(self.root)
+        win.title("Update Grades")
+        win.geometry("700x800")
+        win.configure(bg="white")
+
+        tk.Label(win, text=f"Update Grades\n{name} {surname}", font=("Helvetica", 34, "bold"), bg="white").pack(pady=60)
+        tk.Label(win, text=f"ID: {sid}", font=("Helvetica", 22), bg="white", fg="#00d4aa").pack(pady=20)
+
+        subjects = ["English", "History", "Math", "Science", "Art"]
+        current = [e,h,m,sci,a]
+        entries = {}
+
+        for subj, val in zip(subjects, current):
+            f = tk.Frame(win, bg="white")
+            f.pack(pady=22)
+            tk.Label(f, text=f"{subj}:", font=("Helvetica", 24), bg="white").pack(side="left", padx=40)
+            ent = tk.Entry(f, font=("Helvetica", 30), width=8, justify="center")
+            ent.insert(0, val if val else "")
+            ent.pack(side="right")
+            entries[subj] = ent
+
+        def save():
+            try:
+                grades = [float(entries[s].get()) if entries[s].get().strip() else None for s in subjects]
+            except:
+                messagebox.showerror("Error", "Grades must be numbers!")
+                return
+            conn = sqlite3.connect(DB_NAME)
+            conn.execute("UPDATE students SET english=?, history=?, math=?, science=?, art=? WHERE id=?", (*grades, sid))
+            conn.commit()
+            conn.close()
+            messagebox.showinfo("Success", "Grades updated!")
+            win.destroy()
+            self.show_update_grades_tab()
             self.show_all_students()
 
-    def show_passwords(self):
-        for w in self.tab_passwords.winfo_children(): w.destroy()
-        tk.Label(self.tab_passwords, text="Student Login List", font=("Helvetica", 32, "bold")).pack(pady=50)
-        conn = sqlite3.connect(USERS_DB)
-        users = conn.execute("SELECT username FROM users WHERE role='student'").fetchall()
-        conn.close()
-        for (u,) in users:
-            tk.Label(self.tab_passwords, text=f"Username: {u} → Password: Check your records or reset", font=("Helvetica", 18)).pack(pady=8)
+        tk.Button(win, text="SAVE", font=("Helvetica", 26, "bold"), bg="#10b981", fg="white", command=save, height=2, width=20).pack(pady=80)
 
-    # ==================== STUDENT GRADES ====================
-    def show_student_grades(self):
-        for w in self.tab_grades.winfo_children(): w.destroy()
+    # ==================== STUDENT VIEW ====================
+    def show_student_grades(self, tab):
         conn = sqlite3.connect(DB_NAME)
-        s = conn.execute("SELECT name, english_grade, history_grade, math_grade, science_grade, art_grade FROM students WHERE id=?", (self.username,)).fetchone()
+        s = conn.execute("SELECT name, surname, english, history, math, science, art FROM students WHERE id=?", (self.username,)).fetchone()
         conn.close()
+
         if not s:
-            tk.Label(self.tab_grades, text="No grades yet!", font=("Helvetica", 40)).pack(expand=True)
+            tk.Label(tab, text="Not in class yet.\nAsk your teacher.", font=("Helvetica", 40), fg="red").pack(expand=True)
             return
 
-        name, e,h,m,sci,a = s
-        grades = [x for x in [e,h,m,sci,a] if x is not None]
+        name, surname, e,h,m,sci,a = s
+        grades = [x for x in [e,h,m,sci,a] if x]
         avg = sum(grades)/len(grades) if grades else 0
-        color = "#10b981" if avg>=90 else "#3b82f6" if avg>=80 else "#f59e0b" if avg>=70 else "#ef4444"
+        color = "#10b981" if avg >= 90 else "#3b82f6" if avg >= 80 else "#f59e0b" if avg >= 70 else "#ef4444"
 
-        f = tk.Frame(self.tab_grades, bg="white")
-        f.pack(fill="both", expand=True, padx=200, pady=100)
-        tk.Label(f, text=f"Hello, {name}!", font=("Helvetica", 40, "bold"), bg="white").pack(pady=60)
-        tk.Label(f, text=f"{avg:.1f}/100", font=("Helvetica", 90, "bold"), bg="white", fg=color).pack(pady=40)
-        tk.Label(f, text=f"English: {e}  |  History: {h}  |  Math: {m}  |  Science: {sci}  |  Art: {a}",
-                 font=("Helvetica", 24), bg="white", fg="#475569").pack(pady=40)
+        f = tk.Frame(tab, bg="white")
+        f.pack(fill="both", expand=True, padx=200, pady=150)
+        tk.Label(f, text=f"{name} {surname}", font=("Helvetica", 44, "bold"), bg="white").pack(pady=80)
+        tk.Label(f, text=f"{avg:.1f}/100", font=("Helvetica", 120, "bold"), bg="white", fg=color).pack(pady=60)
+        tk.Label(f, text=f"English: {e} | History: {h} | Math: {m} | Science: {sci} | Art: {a}",
+                 font=("Helvetica", 30), bg="white", fg="#475569").pack(pady=60)
 
-# ==================== WELCOME SCREEN ====================
+# ==================== LOGIN ====================
 class WelcomeApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Student Manager Pro")
-        self.root.geometry("600x750")
+        self.root.geometry("600x800")
         self.root.configure(bg="#0f172a")
         self.root.eval('tk::PlaceWindow . center')
 
-        tk.Label(self.root, text="STUDENT MANAGER PRO", font=("Helvetica", 36, "bold"), bg="#0f172a", fg="#00d4aa").pack(pady=100)
-        tk.Label(self.root, text="Admin → admin / admin", font=("Helvetica", 16), bg="#0f172a", fg="#94a3b8").pack(pady=10)
+        tk.Label(self.root, text="STUDENT MANAGER PRO", font=("Helvetica", 40, "bold"), bg="#0f172a", fg="#00d4aa").pack(pady=120)
+        tk.Label(self.root, text="Admin → admin / admin", font=("Helvetica", 18), bg="#0f172a", fg="#94a3b8").pack(pady=20)
 
-        card = tk.Frame(self.root, bg="white", padx=80, pady=80)
-        card.pack(padx=80, pady=50, fill="both", expand=True)
+        card = tk.Frame(self.root, bg="white", padx=100, pady=120)
+        card.pack(padx=100, fill="both", expand=True)
 
-        tk.Label(card, text="Username", font=("Helvetica", 16), bg="white").pack(pady=(20,10))
-        self.user = tk.Entry(card, font=("Helvetica", 20), justify="center")
-        self.user.pack(pady=10, ipady=15, fill="x")
+        tk.Label(card, text="Student ID", font=("Helvetica", 22), bg="white").pack(pady=30)
+        self.id_entry = tk.Entry(card, font=("Helvetica", 26), justify="center")
+        self.id_entry.pack(pady=15, ipady=20, fill="x")
 
-        tk.Label(card, text="Password", font=("Helvetica", 16), bg="white").pack(pady=(20,10))
-        self.pwd = tk.Entry(card, font=("Helvetica", 20), show="*", justify="center")
-        self.pwd.pack(pady=10, ipady=15, fill="x")
+        tk.Label(card, text="Password", font=("Helvetica", 22), bg="white").pack(pady=30)
+        self.pwd_entry = tk.Entry(card, font=("Helvetica", 26), show="*", justify="center")
+        self.pwd_entry.pack(pady=15, ipady=20, fill="x")
 
-        btns = tk.Frame(card, bg="white")
-        btns.pack(pady=50)
-        tk.Button(btns, text="SIGN UP (Student)", bg="#10b981", fg="white", font=("Helvetica", 16, "bold"), width=20, height=2,
-                  command=self.signup).pack(side="left", padx=20)
-        tk.Button(btns, text="SIGN IN", bg="#00d4aa", fg="black", font=("Helvetica", 16, "bold"), width=15, height=2,
-                  command=self.signin).pack(side="right", padx=20)
+        tk.Button(card, text="LOGIN", bg="#00d4aa", fg="black", font=("Helvetica", 24, "bold"),
+                  width=20, height=2, command=self.login).pack(pady=100)
 
+        self.root.bind('<Return>', lambda e: self.login())
         self.root.mainloop()
 
-    def signin(self):
-        u, p = self.user.get().strip(), self.pwd.get().strip()
-        if not u or not p: return messagebox.showerror("Error", "Fill all fields")
+    def login(self):
+        uid = self.id_entry.get().strip()
+        pwd = self.pwd_entry.get().strip()
+        if not uid or not pwd:
+            return messagebox.showerror("Error", "Fill both fields")
+
         conn = sqlite3.connect(USERS_DB)
-        user = conn.execute("SELECT role FROM users WHERE username=? AND password=?", (u, hash_pwd(p))).fetchone()
+        user = conn.execute("SELECT role FROM users WHERE username=? AND password=?", (uid, hash_pwd(pwd))).fetchone()
         conn.close()
+
         if user:
             self.root.destroy()
-            StudentManagerApp(u, user[0])
+            StudentManagerApp(uid, user[0])
         else:
-            messagebox.showerror("Error", "Wrong login")
-
-    def signup(self):
-        u, p = self.user.get().strip(), self.pwd.get().strip()
-        if len(p) < 4: return messagebox.showerror("Error", "Password too short")
-        conn = sqlite3.connect(USERS_DB)
-        try:
-            conn.execute("INSERT INTO users VALUES (?,?, 'student')", (u, hash_pwd(p)))
-            conn.commit()
-            sqlite3.connect(DB_NAME).execute("INSERT INTO students (id, name, added_date) VALUES (?,?,?)",
-                                            (u, u, datetime.now().strftime("%Y-%m-%d"))).connection.commit()
-            messagebox.showinfo("Success", "Account created!")
-            self.root.destroy()
-            StudentManagerApp(u, "student")
-        except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "Username taken")
-        finally:
-            conn.close()
+            messagebox.showerror("Failed", "Wrong ID or Password")
 
 # ==================== START ====================
 if __name__ == "__main__":
