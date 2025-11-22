@@ -1,10 +1,12 @@
-# modern_student_tracker.py - ULTRA MODERN GREEN UI 2025
+# teacher_dashboard_2025.py - THE ULTIMATE GREEN TEACHER DASHBOARD
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
+import math
 
 DB_NAME = "students.db"
+
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -20,249 +22,238 @@ def init_db():
     conn.commit()
     conn.close()
 
-class ModernStudentTracker:
+
+class TeacherDashboard:
     def __init__(self, root):
         self.root = root
-        self.root.title("Student Tracker 2025")
-        self.root.geometry("1200x750")
-        self.root.configure(bg="#121212")  # Dark modern background
-        self.root.state('zoomed')  # Fullscreen modern feel (optional)
+        self.root.title("Teacher Dashboard 2025")
+        self.root.geometry("1400x900")
+        self.root.configure(bg="#0f0f0f")
+        self.root.state('zoomed')
 
-        # Modern Style
+        # Style
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure("Treeview", background="#1e1e1e", foreground="white",
-                        rowheight=60, fieldbackground="#1e1e1e", font=("Segoe UI", 11))
-        style.configure("Treeview.Heading", background="#0d3311", foreground="white",
-                        font=("Segoe UI", 12, "bold"))
+        style.configure("Treeview", background="#1a1a1a", foreground="#e0e0e0",
+                        fieldbackground="#1a1a1a", rowheight=50, font=("Segoe UI", 11))
+        style.configure("Treeview.Heading", background="#1b5e20", foreground="white", font=("Segoe UI", 12, "bold"))
         style.map("Treeview", background=[('selected', '#2e7d32')])
-        style.map("Treeview.Heading", background=[('active', '#1b5e20')])
 
-        # Title
-        title_frame = tk.Frame(root, bg="#121212")
-        title_frame.pack(pady=30)
-        tk.Label(title_frame, text="STUDENT TRACKER", font=("Montserrat", 36, "bold"),
-                 bg="#121212", fg="#4caf50").pack()
-        tk.Label(title_frame, text="Modern • Fast • Beautiful", font=("Segoe UI", 14),
-                 bg="#121212", fg="#81c784").pack()
+        # Header
+        header = tk.Frame(root, bg="#1b5e20", height=100)
+        header.pack(fill="x")
+        header.pack_propagate(False)
 
-        # Buttons
-        btn_frame = tk.Frame(root, bg="#121212")
-        btn_frame.pack(pady=20)
+        tk.Label(header, text="TEACHER DASHBOARD", font=("Montserrat", 32, "bold"),
+                 bg="#1b5e20", fg="#c8e6c9").pack(side="left", padx=40, pady=20)
+        tk.Label(header, text=f"{datetime.now().strftime('%A, %B %d, %Y')}",
+                 font=("Segoe UI", 14), bg="#1b5e20", fg="#81c784").pack(side="right", padx=40, pady=30)
 
-        add_btn = tk.Button(btn_frame, text="+ ADD STUDENT", font=("Segoe UI", 14, "bold"),
-                           bg="#4caf50", fg="white", relief="flat", bd=0, padx=30, pady=15,
-                           command=self.add_student, cursor="hand2")
-        add_btn.pack(side=tk.LEFT, padx=15)
-        self.add_hover(add_btn, "#66bb6a", "#4caf50")
+        # Main Content
+        content = tk.Frame(root, bg="#0f0f0f")
+        content.pack(fill="both", expand=True, padx=30, pady=20)
 
-        refresh_btn = tk.Button(btn_frame, text="Refresh", font=("Segoe UI", 14, "bold"),
-                               bg="#2e7d32", fg="white", relief="flat", bd=0, padx=30, pady=15,
-                               command=self.load_students, cursor="hand2")
-        refresh_btn.pack(side=tk.LEFT, padx=15)
-        self.add_hover(refresh_btn, "#388e3c", "#2e7d32")
+        # Stats Cards
+        stats_frame = tk.Frame(content, bg="#0f0f0f")
+        stats_frame.pack(fill="x", pady=20)
 
-        # Treeview with modern hover
-        columns = ("ID", "Name", "Grade", "Email", "Added")
-        self.tree = ttk.Treeview(root, columns=columns, show="headings", selectmode="browse")
-        self.tree.pack(fill="both", expand=True, padx=50, pady=20)
+        self.stats = {
+            "total": self.create_stat_card(stats_frame, "Total Students", "0", "#4caf50"),
+            "average": self.create_stat_card(stats_frame, "Average Grade", "0.0", "#66bb6a"),
+            "top": self.create_stat_card(stats_frame, "Top Performer", "None", "#81c784"),
+            "lowest": self.create_stat_card(stats_frame, "Lowest Grade", "N/A", "#43a047")
+        }
+        for widget in stats_frame.winfo_children():
+            widget.pack(side="left", expand=True, fill="x", padx=15)
 
-        # Column config
-        self.tree.heading("ID", text="ID")
-        self.tree.heading("Name", text="Student Name")
-        self.tree.heading("Grade", text="Grade")
-        self.tree.heading("Email", text="Email")
-        self.tree.heading("Added", text="Added On")
+        # Chart + Recent Activity
+        middle = tk.Frame(content, bg="#0f0f0f")
+        middle.pack(fill="both", expand=True)
 
-        self.tree.column("ID", width=120, anchor="center")
-        self.tree.column("Name", width=280, anchor="w")
-        self.tree.column("Grade", width=150, anchor="center")
-        self.tree.column("Email", width=300, anchor="w")
-        self.tree.column("Added", width=180, anchor="center")
+        # Grade Distribution Chart
+        chart_frame = tk.LabelFrame(middle, text=" Grade Distribution ", font=("Segoe UI", 14, "bold"),
+                                    bg="#1e1e1e", fg="#81c784", bd=2, relief="flat")
+        chart_frame.pack(side="left", fill="both", expand=True, padx=(0, 20))
+        self.canvas = tk.Canvas(chart_frame, bg="#1e1e1e", highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Tags for hover effect
-        self.tree.tag_configure("oddrow", background="#1e1e1e")
-        self.tree.tag_configure("evenrow", background="#252525")
-        self.tree.tag_configure("hover", background="#2d2d2d")
+        # Recent Students Table
+        recent_frame = tk.LabelFrame(middle, text=" Recent Students ", font=("Segoe UI", 14, "bold"),
+                                     bg="#1e1e1e", fg="#81c784")
+        recent_frame.pack(side="right", fill="both", expand=True)
 
-        # Bind hover
-        self.tree.bind("<Motion>", self.on_hover)
-        self.tree.bind("<Leave>", self.on_leave)
-        self.tree.bind("<Button-3>", self.show_context_menu)
+        columns = ("ID", "Name", "Grade", "Added")
+        self.recent_tree = ttk.Treeview(recent_frame, columns=columns, show="headings", height=10)
+        for col in columns:
+            self.recent_tree.heading(col, text=col)
+            self.recent_tree.column(col, width=120, anchor="center")
+        self.recent_tree.column("Name", width=180)
+        self.recent_tree.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Context menu
-        self.menu = tk.Menu(root, tearoff=0, bg="#1e1e1e", fg="white", font=("Segoe UI", 10))
-        self.menu.add_command(label="Edit Student", command=self.edit_student)
-        self.menu.add_command(label="Delete Student", command=self.delete_student)
+        # Quick Actions
+        actions = tk.Frame(content, bg="#0f0f0f")
+        actions.pack(pady=30)
 
-        # Status bar
-        self.status = tk.Label(root, text="Ready • Modern Design Active", bg="#0d3311", fg="#81c784",
-                               font=("Segoe UI", 11), anchor="w", padx=20)
-        self.status.pack(fill="x", side="bottom", pady=0)
+        tk.Button(actions, text="ADD STUDENT", font=("Segoe UI", 16, "bold"), bg="#4caf50", fg="white",
+                  command=self.add_student, width=20, height=2, relief="flat").pack(side="left", padx=20)
+        tk.Button(actions, text="VIEW ALL STUDENTS", font=("Segoe UI", 16, "bold"), bg="#2e7d32", fg="white",
+                  command=self.open_full_list, width=20, height=2, relief="flat").pack(side="left", padx=20)
+        tk.Button(actions, text="REFRESH DASHBOARD", font=("Segoe UI", 16, "bold"), bg="#1b5e20", fg="white",
+                  command=self.refresh_all, width=20, height=2, relief="flat").pack(side="left", padx=20)
 
-        self.current_hover = None
-        self.load_students()
+        self.refresh_all()
 
-    def add_hover(self, widget, color_on_hover, color_on_leave):
-        widget.bind("<Enter>", lambda e: widget.config(bg=color_on_hover))
-        widget.bind("<Leave>", lambda e: widget.config(bg=color_on_leave))
+    def create_stat_card(self, parent, title, value, color):
+        frame = tk.Frame(parent, bg="#1e1e1e", relief="flat", bd=3)
+        frame.pack_propagate(False)
+        frame.configure(height=150)
 
-    def on_hover(self, event):
-        row_id = self.tree.identify_row(event.y)
-        if row_id and row_id != self.current_hover:
-            if self.current_hover:
-                self.tree.detach(self.current_hover)
-                self.tree.set(self.current_hover, "Grade", self.original_grade)
-            self.current_hover = row_id
-            # Apply hover style
-            self.tree.item(row_id, tags=("hover",))
-            # Highlight grade with badge effect
-            values = self.tree.item(row_id, "values")
-            grade = values[2] if values[2] != "N/A" else "—"
-            self.original_grade = grade
-            if grade != "—":
-                self.tree.set(row_id, "Grade", f"{grade}")
+        tk.Label(frame, text=title, font=("Segoe UI", 14), bg="#1e1e1e", fg="#81c784").pack(pady=20)
+        val_label = tk.Label(frame, text=value, font=("Montserrat", 28, "bold"), bg="#1e1e1e", fg=color)
+        val_label.pack()
+        return val_label
 
-    def on_leave(self, event):
-        if self.current_hover:
-            self.tree.item(self.current_hover, tags=("oddrow", "evenrow"))
-            self.current_hover = None
+    def refresh_all(self):
+        self.update_stats()
+        self.draw_chart()
+        self.load_recent()
 
-    def load_students(self):
-        for i in self.tree.get_children():
-            self.tree.delete(i)
+    def update_stats(self):
         conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, grade, email, added_date FROM students ORDER BY name")
-        rows = cursor.fetchall()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*), AVG(grade), MAX(grade), MIN(grade) FROM students")
+        total, avg, max_g, min_g = cur.fetchone()
+
+        cur.execute("SELECT name FROM students WHERE grade = ?", (max_g,))
+        top_name = cur.fetchone()
+        top_name = top_name[0] if top_name else "None"
+
         conn.close()
 
-        for idx, row in enumerate(rows):
+        self.stats["total"].config(text=str(total or 0))
+        self.stats["average"].config(text=f"{avg:.1f}" if avg else "0.0")
+        self.stats["top"].config(text=f"{top_name}\n({max_g or 0})")
+        self.stats["lowest"].config(text=str(min_g or "N/A"))
+
+    def draw_chart(self):
+        self.canvas.delete("all")
+        width = self.canvas.winfo_width()
+        height = self.canvas.winfo_height()
+        if width < 100 or height < 100:
+            self.root.after(100, self.draw_chart)
+            return
+
+        conn = sqlite3.connect(DB_NAME)
+        cur = conn.cursor()
+        cur.execute("SELECT grade FROM students WHERE grade IS NOT NULL")
+        grades = [row[0] for row in cur.fetchall()]
+        conn.close()
+
+        if not grades:
+            self.canvas.create_text(width // 2, height // 2, text="No grades yet!", fill="#666", font=("Segoe UI", 20))
+            return
+
+        # Grade ranges
+        ranges = [(90, 100), (80, 89), (70, 79), (60, 69), (0, 59)]
+        labels = ["A (90-100)", "B (80-89)", "C (70-79)", "D (60-69)", "F (<60)"]
+        colors = ["#4caf50", "#66bb6a", "#81c784", "#a5d6a7", "#c8e6c9"]
+        counts = [sum(1 for g in grades if low <= g <= high) for low, high in ranges]
+        max_count = max(counts) if counts else 1
+
+        bar_width = (width - 100) // len(counts)
+        start_x = 50
+
+        for i, (count, label, color) in enumerate(zip(counts, labels, colors)):
+            x0 = start_x + i * bar_width
+            x1 = x0 + bar_width - 20
+            y0 = height - 80
+            y1 = y0 - (count / max_count) * (height - 150) if max_count > 0 else y0
+
+            self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="#333")
+            self.canvas.create_text((x0 + x1) // 2, y1 - 20, text=str(count), fill="white", font=("bold", 16))
+            self.canvas.create_text((x0 + x1) // 2, height - 50, text=label, fill="#81c784", angle=15,
+                                    font=("Segoe UI", 10))
+
+    def load_recent(self):
+        for i in self.recent_tree.get_children():
+            self.recent_tree.delete(i)
+        conn = sqlite3.connect(DB_NAME)
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, grade, added_date FROM students ORDER BY added_date DESC LIMIT 8")
+        for row in cur.fetchall():
             grade = f"{row[2]:.1f}" if row[2] else "N/A"
-            tag = "evenrow" if idx % 2 == 0 else "oddrow"
-            self.tree.insert("", "end", values=(row[0], row[1], grade, row[3] or "—", row[4]), tags=(tag,))
-
-        self.status.config(text=f"Total Students: {len(rows)} • Hover for magic!")
-
-    def show_context_menu(self, event):
-        try:
-            self.tree.selection_set(self.tree.identify_row(event.y))
-            self.menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            self.menu.grab_release()
+            self.recent_tree.insert("", "end", values=(row[0], row[1], grade, row[3]))
+        conn.close()
 
     def add_student(self):
-        self.show_form("Add New Student")
+        # Reuse your previous add form (simplified here)
+        self.show_add_form()
 
-    def edit_student(self):
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showwarning("Select", "Please select a student!")
-            return
-        values = self.tree.item(sel[0])["values"]
-        self.show_form("Edit Student", values)
-
-    def delete_student(self):
-        sel = self.tree.selection()
-        if not sel:
-            return
-        values = self.tree.item(sel[0])["values"]
-        if messagebox.askyesno("Delete", f"Permanently delete\n{values[1]} (ID: {values[0]})?"):
-            conn = sqlite3.connect(DB_NAME)
-            conn.execute("DELETE FROM students WHERE id = ?", (values[0],))
-            conn.commit()
-            conn.close()
-            messagebox.showinfo("Deleted", "Student removed successfully!")
-            self.load_students()
-
-    def show_form(self, title, data=None):
+    def show_add_form(self):
         form = tk.Toplevel(self.root)
-        form.title(title)
-        form.geometry("480x580")
-        form.configure(bg="#121212")
-        form.resizable(False, False)
-        form.grab_set()
-
-        tk.Label(form, text=title, font=("Montserrat", 20, "bold"), bg="#121212", fg="#4caf50").pack(pady=30)
+        form.title("Add Student")
+        form.geometry("500x600")
+        form.configure(bg="#0f0f0f")
 
         entries = {}
-        fields = ["Student ID", "Full Name", "Grade (e.g. 95.5)", "Email (optional)"]
+        fields = ["Student ID", "Full Name", "Grade", "Email"]
         for field in fields:
-            tk.Label(form, text=field, font=("Segoe UI", 11), bg="#121212", fg="#81c784").pack(anchor="w", padx=60, pady=(20,5))
-            entry = tk.Entry(form, font=("Segoe UI", 14), bg="#1e1e1e", fg="white", insertbackground="white",
-                            relief="flat", bd=8, highlightthickness=2, highlightcolor="#4caf50")
-            entry.pack(padx=60, fill="x", pady=5)
-            entries[field] = entry
-
-        if data:
-            entries["Student ID"].insert(0, data[0])
-            entries["Student ID"].config(state="disabled", disabledbackground="#333", disabledforeground="#aaa")
-            entries["Full Name"].insert(0, data[1])
-            entries["Grade (e.g. 95.5)"].insert(0, data[2] if data[2] != "N/A" else "")
-            entries["Email (optional)"].insert(0, data[3] if data[3] != "—" else "")
+            tk.Label(form, text=field, font=("Segoe UI", 14), bg="#0f0f0f", fg="#81c784").pack(pady=10)
+            e = tk.Entry(form, font=("Segoe UI", 14), bg="#1e1e1e", fg="white", insertbackground="white")
+            e.pack(pady=5, padx=50, fill="x")
+            entries[field] = e
 
         def save():
-            sid = entries["Student ID"].get().strip()
-            name = entries["Full Name"].get().strip()
-            grade = entries["Grade (e.g. 95.5)"].get().strip()
-            email = entries["Email (optional)"].get().strip()
-
-            if not sid or not name:
+            data = {k: v.get().strip() for k, v in entries.items()}
+            if not data["Student ID"] or not data["Full Name"]:
                 messagebox.showerror("Error", "ID and Name required!")
                 return
-
-            conn = sqlite3.connect(DB_NAME)
             try:
-                if data:
-                    old_grade = data[2] if data[2] != "N/A" else None
-                    conn.execute("UPDATE students SET name=?, grade=?, email=? WHERE id=?",
-                                (name, float(grade) if grade else None, email or None, sid))
-                    change = self.calculate_change(old_grade, grade)
-                    messagebox.showinfo("Success", f"Updated!\n{change}")
-                else:
-                    conn.execute("INSERT INTO students VALUES (?, ?, ?, ?, ?)",
-                                (sid, name, float(grade) if grade else None, email or None,
-                                 datetime.now().strftime("%Y-%m-%d %H:%M")))
-                    messagebox.showinfo("Success", f"Student '{name}' added!")
+                conn = sqlite3.connect(DB_NAME)
+                conn.execute("INSERT INTO students VALUES (?, ?, ?, ?, ?)",
+                             (data["Student ID"], data["Full Name"],
+                              float(data["Grade"]) if data["Grade"] else None,
+                              data["Email"] or None, datetime.now().strftime("%Y-%m-%d %H:%M")))
                 conn.commit()
+                conn.close()
+                messagebox.showinfo("Success", "Student added!")
+                form.destroy()
+                self.refresh_all()
             except sqlite3.IntegrityError:
                 messagebox.showerror("Error", "ID already exists!")
             except ValueError:
-                messagebox.showerror("Error", "Grade must be a number!")
-            finally:
-                conn.close()
-                form.destroy()
-                self.load_students()
+                messagebox.showerror("Error", "Invalid grade!")
 
-        save_btn = tk.Button(form, text="SAVE STUDENT", font=("Segoe UI", 14, "bold"),
-                            bg="#4caf50", fg="white", command=save, relief="flat", pady=15)
-        save_btn.pack(fill="x", padx=60, pady=40)
-        self.add_hover(save_btn, "#66bb6a", "#4caf50")
+        tk.Button(form, text="SAVE", font=("bold", 16), bg="#4caf50", fg="white",
+                  command=save, pady=15).pack(pady=40, fill="x", padx=50)
 
-    def calculate_change(self, old, new):
-        if not new:
-            return "Grade cleared"
-        try:
-            old_val = float(old) if old else 0
-            new_val = float(new)
-            if old_val == 0:
-                return f"First grade set: {new_val}"
-            change = new_val - old_val
-            percent = (change / old_val) * 100
-            if change > 0:
-                return f"UPGRADE +{change:.1f} (+{percent:+.1f}%)"
-            elif change < 0:
-                return f"DOWNGRADE {change:.1f} ({percent:+.1f}%)"
-            else:
-                return "No change"
-        except:
-            return "Grade updated"
+    def open_full_list(self):
+        # Open full student list in new window
+        FullListWindow(self.root)
+
+    def refresh_all(self):
+        self.update_stats()
+        self.draw_chart()
+        self.load_recent()
+
+
+class FullListWindow:
+    def __init__(self, parent):
+        self.window = tk.Toplevel(parent)
+        self.window.title("All Students")
+        self.window.geometry("1200x800")
+        self.window.configure(bg="#0f0f0f")
+
+        # Add your full treeview from previous version here
+        tk.Label(self.window, text="Full Student List Coming Soon!",
+                 font=("Segoe UI", 24), bg="#0f0f0f", fg="#81c784").pack(expand=True)
+
 
 # ============================
-# LAUNCH MODERN APP
+# LAUNCH THE DASHBOARD
 # ============================
 if __name__ == "__main__":
     init_db()
     root = tk.Tk()
-    app = ModernStudentTracker(root)
+    app = TeacherDashboard(root)
     root.mainloop()
